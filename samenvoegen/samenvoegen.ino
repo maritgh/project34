@@ -30,47 +30,45 @@ void setup() {
 }
  
 void loop() {
-  char Key;
   byte KState = KP2.Key_State();
   if (KState == PRESSED) {
-    if (Key = KP2.Getkey()) {
+    keypadpress();
+  }
+
+  int value_key = analogRead(A2);
+  
+  /*If two buttons are pressed at the time then lowest value is used*/
+ 
+  if (value_key <= 900) {
+    buttonpress(value_key);
+  }
+
+}
+void keypadpress(){
+  char Key;
+  if (Key = KP2.Getkey()) {
       Serial << "Key: " << Key << "\n";
       lcd.setCursor(0, 0);
       lcd.clear();
       lcd.print(Key);
     }
-  }
-
-  int value_key = analogRead(A2);
- 
-  // Measure raw analogRead values for each button
-  // Serial.print("Analog Read Value: ");
-  // Serial.println(value);
- 
-  /*If two buttons are pressed at the time then lowest value is used*/
- 
-  // Adjust these ranges based on your observations
-  if (value_key != 1023) {
-    Serial.println("Keypressed");
-    if (value_key > 850) {
-      Serial.println("Button6");
-    } else if (value_key > 800) {
-      Serial.println("Button5");
-    } else if (value_key > 700) {
-        Serial.println("Button4");
-    } else if (value_key > 600) {
-        Serial.println("Button3");
-    } else if (value_key > 450) {
-        Serial.println("Button2");
-    } else if (value_key < 450) {
-        Serial.println("Button1");
-    } else{
-        Serial.println("Error");
-    }
-  }
- 
-  delay(500);
 }
-void keypadpress(){
-  
+void buttonpress(int value_key){
+  Serial.println("Keypressed");
+  if (value_key > 850) {
+    Serial.println("Button6");
+  } else if (value_key > 800) {
+    Serial.println("Button5");
+  } else if (value_key > 700) {
+    Serial.println("Button4");
+  } else if (value_key > 600) {
+    Serial.println("Button3");
+  } else if (value_key > 450) {
+    Serial.println("Button2");
+  } else if (value_key < 450) {
+    Serial.println("Button1");
+  } else{
+    Serial.println("Error");
+  }
+   delay(500);
 }

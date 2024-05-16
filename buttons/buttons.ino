@@ -3,11 +3,11 @@ void setup() {
 }
  
 void loop() {
-  int value = analogRead(A0);
+  int value = analogRead(A2);
  
   // Measure raw analogRead values for each button
   // Serial.print("Analog Read Value: ");
-  // Serial.println(value);
+   Serial.println(value);
  
   /*If two buttons are pressed at the time then lowest value is used*/
  
