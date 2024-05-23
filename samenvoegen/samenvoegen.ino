@@ -47,11 +47,8 @@ void setup() {
 }
  
 void loop() {
-   if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
-        return;
-  mfrc522.PICC_DumpMifareClassicSectorToSerial(&(mfrc522.uid), &key, 1);
-  mfrc522.PICC_HaltA();
-  mfrc522.PCD_StopCrypto1();
+  cardscan();
+  
   byte KState = KP2.Key_State();
   if (KState == PRESSED) {
     keypadpress();
@@ -66,6 +63,7 @@ void loop() {
   }
 
 }
+
 void cardscan(){
   if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
         return;
@@ -76,9 +74,10 @@ void cardscan(){
 
 
 void keypadpress(){
+  Serial.print("keypad : ");
   char Key;
   if (Key = KP2.Getkey()) {
-      Serial << "Key: " << Key << "\n";
+      Serial.println(Key);
       lcd.setCursor(0, 0);
       lcd.clear();
       lcd.print(Key);
@@ -87,19 +86,19 @@ void keypadpress(){
 
 
 void buttonpress(int value_key){
-  Serial.println("Keypressed");
+  Serial.print("button : ");
   if (value_key > 850) {
-    Serial.println("Button6");
+    Serial.println("6");
   } else if (value_key > 800) {
-    Serial.println("Button5");
+    Serial.println("5");
   } else if (value_key > 700) {
-    Serial.println("Button4");
+    Serial.println("4");
   } else if (value_key > 600) {
-    Serial.println("Button3");
+    Serial.println("3");
   } else if (value_key > 450) {
-    Serial.println("Button2");
+    Serial.println("2");
   } else if (value_key < 450) {
-    Serial.println("Button1");
+    Serial.println("1");
   } else{
     Serial.println("Error");
   }
