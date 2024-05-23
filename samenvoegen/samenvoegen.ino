@@ -8,6 +8,12 @@
 MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
 
 MFRC522::MIFARE_Key key;
+MFRC522::StatusCode status;
+byte blockAddr4 = 4;
+byte blockAddr5 = 5;
+byte buffer1[18];
+byte len = 18;
+char iban[36];
 
  
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
@@ -47,7 +53,9 @@ void setup() {
 }
  
 void loop() {
+
   cardscan();
+  
   
   byte KState = KP2.Key_State();
   if (KState == PRESSED) {
@@ -65,11 +73,77 @@ void loop() {
 }
 
 void cardscan(){
-  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+    for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+    }
+    if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()){
+      for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+      }
+      return;
+    }
+
+    status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, blockAddr4, &key, &(mfrc522.uid));
+    if (status != MFRC522::STATUS_OK) {
+        Serial.print(F("Authentication failed: ")); Serial.println(mfrc522.GetStatusCodeName(status));
+        for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+        }
         return;
-  mfrc522.PICC_DumpMifareClassicSectorToSerial(&(mfrc522.uid), &key, 1);
-  mfrc522.PICC_HaltA();
-  mfrc522.PCD_StopCrypto1();
+    }
+    status = mfrc522.MIFARE_Read(blockAddr4, buffer1, &len);
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print(F("Reading failed: "));
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+      }
+      return;
+    }
+    for (uint8_t i = 0; i < 16; i++)
+    {
+      if (buffer1[i] != 32)
+      {
+        iban[i]=buffer1[i];
+      }
+    }
+    Serial.print(" ");
+    memset(buffer1, 0, sizeof(buffer1));
+    status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, blockAddr5, &key, &(mfrc522.uid));
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print(F("Authentication failed: ")); Serial.println(mfrc522.GetStatusCodeName(status));
+      for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+      }
+      return;
+    }
+    status = mfrc522.MIFARE_Read(blockAddr5, buffer1, &len);
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print(F("Reading failed: "));
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+      }
+      return;
+    }
+    for (uint8_t i = 0; i < 16; i++)
+    {
+      if (buffer1[i] != 32)
+      {
+        iban[i+8]=buffer1[i];
+      }
+    }
+    memset(buffer1, 0, sizeof(buffer1));
+    for (byte i = 0; i < 6; i++) {
+        key.keyByte[i] = 0xFF;
+    }
+
+    mfrc522.PICC_HaltA();
+    mfrc522.PCD_StopCrypto1();
+    Serial.println();
+    Serial.println(iban);
+    delay(100);
+
 }
 
 
