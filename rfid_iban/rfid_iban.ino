@@ -68,6 +68,7 @@ void loop() {
     status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, blockAddr4, &key, &(mfrc522.uid));
     if (status != MFRC522::STATUS_OK) {
         Serial.print(F("Authentication failed: ")); Serial.println(mfrc522.GetStatusCodeName(status));
+        
         return;
     }
     status = mfrc522.MIFARE_Read(blockAddr4, buffer1, &len);

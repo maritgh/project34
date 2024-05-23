@@ -82,7 +82,6 @@ void cardscan(){
       }
       return;
     }
-
     status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, blockAddr4, &key, &(mfrc522.uid));
     if (status != MFRC522::STATUS_OK) {
         Serial.print(F("Authentication failed: ")); Serial.println(mfrc522.GetStatusCodeName(status));
@@ -142,6 +141,8 @@ void cardscan(){
     mfrc522.PCD_StopCrypto1();
     Serial.println();
     Serial.println(iban);
+    mfrc522.PCD_Reset();
+    mfrc522.PCD_Init();
     delay(100);
 
 }
