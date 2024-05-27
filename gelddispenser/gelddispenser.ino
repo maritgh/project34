@@ -1,136 +1,212 @@
 #include <Servo.h>
 #include <Arduino.h>
  
-// Motor A connections
-int enA = 9; // Enable pin for motor A (connected to L293D ENA pin)
-int in1 = 8; // Control pin 1 for motor A (connected to L293D IN1 pin)
-int in2 = 7; // Control pin 2 for motor A (connected to L293D IN2 pin)
+// Motor A connections (€50 dispenser)
+int enA = 9; // Enable pin for motor A
+int in1 = 8; // Control pin 1 for motor A
+int in2 = 7; // Control pin 2 for motor A
+ 
+// Motor B connections (€20 dispenser)
+int enB = 3; // Enable pin for motor B
+int in3 = 4; // Control pin 1 for motor B
+int in4 = 5; // Control pin 2 for motor B
+ 
+// Servo connections
 int servoPin50 = 10; // Servo pin for the €50 dispenser
+int servoPin20 = 12; // Servo pin for the €20 dispenser
+ 
 const int IRSensorPin = 11; // IR sensor pin to check if cash is dispensed
  
-// variables for dispenser counts and bank budget
+// Variables for dispenser counts and bank budget
 int dispenser50Count = 13;
+int dispenser20Count = 20;
 int bankBudget = 1040;
+bool transactionInProgress = false; // Flag to indicate if a transaction is in progress
+ 
+// Variables to track the last transaction
+String lastDenomination = "";
+int lastCount = 0;
  
 Servo Servo50;
+Servo Servo20;
  
 void setup() {
-  // initialize the servo
+  // Initialize the servos
   Servo50.attach(servoPin50);
-  Servo50.write(0); // Move the servo to the end position
+  Servo50.write(0); // Move the €50 dispenser servo to the end position
  
-  // Initialization code for the motor driver
+  Servo20.attach(servoPin20);
+  Servo20.write(0); // Move the €20 dispenser servo to the end position
+ 
+  // Initialization code for the motor drivers
   pinMode(enA, OUTPUT);
   pinMode(in1, OUTPUT);
   pinMode(in2, OUTPUT);
+ 
+  pinMode(enB, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+ 
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
-  analogWrite(enA, 0); // Ensure the motor is initially off
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+ 
+  analogWrite(enA, 0); // Ensure motor A is initially off
+  analogWrite(enB, 0); // Ensure motor B is initially off
  
   // Initialize the IR sensor
   pinMode(IRSensorPin, INPUT);
  
   // Initialize serial communication
   Serial.begin(9600);
-  Serial.println("Enter the withdrawal amount (in multiples of 50):");
+  Serial.println("Enter the withdrawal amount (e.g., '50 1' for one €50 note or '20 2' for two €20 notes):");
 }
  
 void loop() {
-  // Check for user commands
-  if (Serial.available() > 0) {
+  // Check for user commands only if no transaction is in progress
+  if (!transactionInProgress && Serial.available() > 0) {
     String command = Serial.readStringUntil('\n');
     command.trim(); // Remove leading and trailing whitespace, including the newline character
     Serial.println("Received command: " + command); // Debug message
-    if (command.equals("RESET")) {
-      resetATM(); // Reset the ATM if the user entered "RESET"
+    executeCommand(command); // Process the command
+  }
+ 
+  // If a transaction is in progress and no cash is detected by the IR sensor, retry the transaction
+  if (transactionInProgress && digitalRead(IRSensorPin) == HIGH) { // HIGH means no cash
+    Serial.println("No cash detected, retrying...");
+    delay(2000); // Delay to avoid rapid retries
+    retryTransaction();
+  }
+}
+ 
+// Function to execute the user command
+void executeCommand(String command) {
+  // Split the command into tokens based on space
+  while (command.length() > 0) {
+    int spaceIndex = command.indexOf(' ');
+    String denomination;
+    if (spaceIndex != -1) {
+      denomination = command.substring(0, spaceIndex);
+      command = command.substring(spaceIndex + 1);
     } else {
-      // Check if the input is a valid withdrawal amount
-      int amount = command.toInt();
-      if (amount % 50 == 0 && amount <= 500) {
-        withdrawMoney(amount); // Withdraw money if the amount is valid
-      } else {
-        // Inform the user of invalid input
-        Serial.println("Invalid amount. Enter a multiple of 50, up to €500, or 'RESET' to reset the ATM.");
-      }
+      denomination = command;
+      command = "";
+    }
+    int countIndex = command.indexOf(' ');
+    String countString;
+    if (countIndex != -1) {
+      countString = command.substring(0, countIndex);
+      command = command.substring(countIndex + 1);
+    } else {
+      countString = command;
+      command = "";
+    }
+    int count = countString.toInt();
+    if (denomination == "50") {
+      lastDenomination = "50";
+      lastCount = count;
+      withdraw50(count); // Withdraw €50 notes
+    } else if (denomination == "20") {
+      lastDenomination = "20";
+      lastCount = count;
+      withdraw20(count); // Withdraw €20 notes
+    } else {
+      Serial.println("Invalid denomination.");
+      return;
     }
   }
 }
  
-void resetATM() {
-  // Reset dispenser counts and bank budget
-  dispenser50Count = 13;
-  bankBudget = 1040;
- 
-  // Inform the user of the reset
-  Serial.println("The ATM has been reset. Dispenser counts set to 13 notes each. Bank budget set to €1040.");
-}
- 
-void issueNote() {
-  if (dispenser50Count > 0) {
-    dispenser50Count--;  // Decrease only if the dispenser has notes
- 
-    bool noteDispensed = false;
-    while (!noteDispensed) {
-      // Code to dispense a €50 note
-      Serial.println("Dispensing: €50");
- 
-      analogWrite(enA, 255); // Set the motor to maximum speed
-      digitalWrite(in1, LOW); // Set the motor direction (adjusted for correct direction)
-      digitalWrite(in2, HIGH);  // Set the motor direction (adjusted for correct direction)
-      delay(100);
-      Servo50.write(180); // Move the servo to the start position
-      delay(500); // Wait 0.5 seconds to ensure the note is dispensed
-      Servo50.write(0);
-      delay(500);
-      Servo50.write(180);
-      delay(5000);
-      analogWrite(enA, 0); // Stop the motor
+// Function to withdraw €50 notes
+void withdraw50(int count) {
+  Serial.println("Withdraw €50 notes: " + String(count));
+  for (int i = 0; i < count; i++) {
+    bool dispensed = false;
+    while (!dispensed) {
+      // Turn on motor A
       digitalWrite(in1, LOW);
-      digitalWrite(in2, LOW);
-      delay(1000); // Wait 1 second for stability
-      Servo50.write(0); // Move the servo to the end position
-      delay(1000); // Wait 1 second for the servo to move
+      digitalWrite(in2, HIGH);
+      analogWrite(enA, 255); // Set motor A to maximum speed
  
-      // Check if the IR sensor detects black (cash stuck)
-      if (digitalRead(IRSensorPin) == LOW) { // LOW means no black detected, hence cash dispensed
-        noteDispensed = true;
-        Serial.println("Note successfully dispensed");
+      // Set the transaction in progress
+      transactionInProgress = true;
+ 
+      // Wait for the dispensing to complete
+      delay(2000); // Adjust this delay as necessary
+ 
+      // Check if cash is dispensed
+      if (digitalRead(IRSensorPin) == HIGH) { // HIGH means no cash
+        Serial.println("Cash not detected, retrying...");
+        // Turn off motor A
+        digitalWrite(in1, LOW);
+        digitalWrite(in2, LOW);
+        analogWrite(enA, 0); // Turn off motor A
+        delay(500); // Delay before retrying
       } else {
-        Serial.println("Cash stuck, trying again...");
+        dispensed = true;
+        // Turn off motor A
+        digitalWrite(in1, LOW);
+        digitalWrite(in2, LOW);
+        analogWrite(enA, 0); // Turn off motor A
       }
+ 
+      // Add a delay between dispensing each note, adjust as necessary
+      delay(500); // 0.5 second delay between dispensing each note
     }
-  } else {
-    Serial.println("The dispenser is empty.");
+ 
+    // Set the transaction as complete for €50 notes
+    transactionInProgress = false;
   }
 }
  
-// Function to withdraw money
-void withdrawMoney(int amount) {
-  // Calculate the total available amount in the ATM
-  int totalAvailable = dispenser50Count * 50;
+// Function to withdraw €20 notes
+void withdraw20(int count) {
+  Serial.println("Withdraw €20 notes: " + String(count));
+  for (int i = 0; i < count; i++) {
+    bool dispensed = false;
+    while (!dispensed) {
+      // Turn on motor B
+      digitalWrite(in3, HIGH);
+      digitalWrite(in4, LOW);
+      analogWrite(enB, 255); // Set motor B to maximum speed
  
-  // Check if there is enough money available for withdrawal
-  if (amount <= totalAvailable) {
-    // Calculate the number of €50 notes to be dispensed
-    int count50 = amount / 50;
+      // Set the transaction in progress
+      transactionInProgress = true;
  
-    // Dispense the €50 notes
-    for (int i = 0; i < count50; i++) {
-      issueNote();
+      // Wait for the dispensing to complete
+      delay(2000); // Adjust this delay as necessary
+ 
+      // Check if cash is dispensed
+      if (digitalRead(IRSensorPin) == HIGH) { // HIGH means no cash
+        Serial.println("Cash not detected, retrying...");
+        // Turn off motor B
+        digitalWrite(in3, LOW);
+        digitalWrite(in4, LOW);
+        analogWrite(enB, 0); // Turn off motor B
+        delay(500); // Delay before retrying
+      } else {
+        dispensed = true;
+        // Turn off motor B
+        digitalWrite(in3, LOW);
+        digitalWrite(in4, LOW);
+        analogWrite(enB, 0); // Turn off motor B
+      }
+ 
+      // Add a delay between dispensing each note, adjust as necessary
+      delay(500); // 0.5 second delay between dispensing each note
     }
  
-    // Update the bank budget after the successful transaction
-    bankBudget -= (count50 * 50);
- 
-    // Print the dispenser counts and the bank budget for debugging
-    Serial.print("Dispenser count 50: ");
-    Serial.println(dispenser50Count);
-    Serial.print("Bank budget: ");
-    Serial.println(bankBudget);
- 
-    // Inform the user that the transaction was successful
-    Serial.println("Transaction successful. Please take your money.");
-  } else {
-    // Inform the user that there is not enough money available in the ATM
-    Serial.println("Insufficient funds available in the ATM.");
+    // Set the transaction as complete for €20 notes
+    transactionInProgress = false;
   }
+}
+ 
+// Function to retry the transaction
+void retryTransaction() {
+  if (lastDenomination == "50") {
+    withdraw50(lastCount); // Retry dispensing €50 notes
+  } else if (lastDenomination == "20") {
+    withdraw20(lastCount); // Retry dispensing €20 notes
+  }
+}
