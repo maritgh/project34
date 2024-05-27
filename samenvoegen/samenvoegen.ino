@@ -18,6 +18,7 @@ byte buffer1[18];
 byte len = 18;
 char iban[36];
 char uid[12];
+String bon;
  
 //bon printer
 // #define TX_PIN 6
@@ -74,6 +75,10 @@ void loop() {
  
   if (value_key <= 900) {
     buttonpress(value_key);
+  }
+  if(Serial.read()== 'q'){
+    bon = Serial.readStringUntil('q');
+    Serial.println(bon);
   }
  
 }
