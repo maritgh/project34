@@ -2,9 +2,9 @@
 #include <LiquidCrystal.h>
 #include <SPI.h>
 #include <MFRC522.h>
-// #include "Adafruit_Thermal.h"
-// #include "SoftwareSerial.h"
-// #include <DS3231.h>
+#include <Adafruit_Thermal.h>
+#include <SoftwareSerial.h>
+#include <DS3231.h>
 //rfid scanner
 #define RST_PIN 9
 #define SS_PIN 10
@@ -24,8 +24,8 @@ String bon;
 #define TX_PIN 6
 #define RX_PIN 5
 
-// SoftwareSerial mySerial(RX_PIN, TX_PIN);
-// Adafruit_Thermal printer(&mySerial);
+SoftwareSerial mySerial(RX_PIN, TX_PIN);
+Adafruit_Thermal printer(&mySerial);
 
 //keypad
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
