@@ -1,3 +1,5 @@
+#include <Servo.h>
+#include <Arduino.h>
 #include <OnewireKeypad.h>
 #include <LiquidCrystal.h>
 #include <SPI.h>
@@ -5,9 +7,36 @@
 #include <Adafruit_Thermal.h>
 #include <SoftwareSerial.h>
 #include <DS3231.h>
+//Motoren
+// Motor A connections (€50 dispenser)
+int enA = 12;  // Enable pin for motor A
+int in1 = 22;  // Control pin 1 for motor A
+int in2 = 23;  // Control pin 2 for motor A
+
+// Motor B connections (€20 dispenser)
+int enB = 13;  // Enable pin for motor B
+int in3 = 24;  // Control pin 1 for motor B
+int in4 = 25;  // Control pin 2 for motor B
+
+// Servo connections
+int servoPin50 = 10;  // Servo pin for the €50 dispenser
+int servoPin20 = 9;  // Servo pin for the €20 dispenser
+int servoPinDeur = 8;
+
+const int IRSensorPin = 3;  // IR sensor pin to check if cash is dispensed
+
+// Variables for dispenser counts and bank budget
+int dispenser50Count = 13;
+int dispenser20Count = 20;
+int bankBudget = 1040;
+bool transactionInProgress = false;  // Flag to indicate if a transaction is in progress
+
+Servo Servo50;
+Servo Servo20;
+Servo Deur;
 //rfid scanner
-#define RST_PIN 9
-#define SS_PIN 10
+#define RST_PIN 5
+#define SS_PIN 53
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 
 MFRC522::MIFARE_Key key;
@@ -22,7 +51,7 @@ String bon;
 
 //bon printer
 #define TX_PIN 6
-#define RX_PIN 5
+#define RX_PIN 7
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
 Adafruit_Thermal printer(&mySerial);
@@ -51,11 +80,36 @@ void setup() {
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
-  pinMode(7, OUTPUT);
-  digitalWrite(7, LOW);
   printer.begin();
   printer.setHeatConfig(11, 200, 90);
   printer.sleep();
+  // Initialize the servos
+  Servo50.attach(servoPin50);
+  Servo50.write(0);  // Initialize the €50 dispenser servo to the start position
+
+  Servo20.attach(servoPin20);
+  Servo20.write(0);  // Initialize the €20 dispenser servo to the start position
+  Deur.attach(servoPinDeur);
+  Deur.write(0);
+  // Initialization code for the motor drivers
+  pinMode(enA, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+
+  pinMode(enB, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+
+  analogWrite(enA, 255);
+  analogWrite(enB, 255); 
+
+  // Initialize the IR sensor
+  pinMode(IRSensorPin, INPUT);
 }
 
 void loop() {
@@ -78,6 +132,12 @@ void loop() {
   if (Serial.read() == 'q') {
     bon = Serial.readStringUntil('q');
     Serial.println(bon);
+  }
+    if (!transactionInProgress && Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();                                  // Remove leading and trailing whitespace, including the newline character
+    Serial.println("Received command: " + command);  // Debug message
+    executeCommand(command);                         // Process the command
   }
 }
 
@@ -258,4 +318,161 @@ void printbon() {
   printer.println("\n");
   printer.println("\n");
   printer.sleep();
+}
+void executeCommand(String command) {
+  // Split the command into tokens based on space
+  while (command.length() > 0) {
+    int spaceIndex = command.indexOf(' ');
+    String denomination;
+    if (spaceIndex != -1) {
+      denomination = command.substring(0, spaceIndex);
+      command = command.substring(spaceIndex + 1);
+    } else {
+      denomination = command;
+      command = "";
+    }
+    int countIndex = command.indexOf(' ');
+    String countString;
+    if (countIndex != -1) {
+      countString = command.substring(0, countIndex);
+      command = command.substring(countIndex + 1);
+    } else {
+      countString = command;
+      command = "";
+    }
+    int count = countString.toInt();
+    if (denomination == "50") {
+      withdraw50(count);  // Withdraw €50 notes
+    } else if (denomination == "20") {
+      withdraw20(count);  // Withdraw €20 notes
+    } else {
+      Serial.println("Invalid denomination.");
+      return;
+    }
+    Deur.write(90);
+    Serial.println("geld uitgegeven");
+    delay(5000);
+    Deur.write(0);
+  }
+}
+// Function to withdraw €50 notes
+void withdraw50(int count) {
+  Serial.println("Withdraw €50 notes: " + String(count));
+  for (int i = 0; i < count; i++) {
+    bool dispensed = false;
+    Servo50.write(0);
+    delay(500);
+    // Turn on motor A
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+    while (!dispensed) {
+      // Move the servo to 180 degrees to dispense the note
+      Servo50.write(180);
+
+      // Set the transaction in progress
+      transactionInProgress = true;
+
+      // Wait for the dispensing to complete
+      for (int i = 0; i < 50; i++) {
+        delay(50);  // Adjust this delay as necessary
+        if (digitalRead(IRSensorPin) == LOW) {
+          dispensed = true;
+        }
+      }
+
+      // Check if cash is dispensed
+      if (digitalRead(IRSensorPin) == HIGH && dispensed == false) {  // HIGH means no cash
+        Serial.println("Cash not detected, retrying...");
+
+
+        Servo50.write(0);  // Move the servo back to 0 degrees
+        for (int i = 0; i < 10; i++) {
+          delay(50);  // Adjust this delay as necessary
+          if (digitalRead(IRSensorPin) == LOW) {
+            dispensed = true;
+          }
+        }
+        Servo50.write(180);
+      } else{
+        Servo50.write(0);  // Move the servo back to 0 degrees
+        dispensed = true;
+      }
+
+      // Add a delay between dispensing each note, adjust as necessary
+      for (int i = 0; i < 10; i++) {
+        delay(50);  // Adjust this delay as necessary
+        if (digitalRead(IRSensorPin) == LOW) {
+          dispensed = true;
+        }
+      }
+    }
+    // turn off motor A
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+    delay(1000);
+  }
+
+  // Set the transaction as complete for €50 notes
+  transactionInProgress = false;
+}
+
+// Function to withdraw €20 notes
+void withdraw20(int count) {
+  Serial.println("Withdraw €20 notes: " + String(count));
+  for (int i = 0; i < count; i++) {
+    bool dispensed = false;
+    Servo20.write(0);
+    delay(500);
+    // Turn on motor B
+    digitalWrite(in3, HIGH);
+    digitalWrite(in4, LOW);
+    while (!dispensed) {
+      // Move the servo to 180 degrees to dispense the note
+      Servo20.write(180);
+
+      // Set the transaction in progress
+      transactionInProgress = true;
+
+      // Wait for the dispensing to complete
+      for (int i = 0; i < 50; i++) {
+        delay(50);  // Adjust this delay as necessary
+        if (digitalRead(IRSensorPin) == LOW) {
+          dispensed = true;
+        }
+      }
+
+      // Check if cash is dispensed
+      if (digitalRead(IRSensorPin) == HIGH && dispensed == false) {  // HIGH means no cash
+        Serial.println("Cash not detected, retrying...");
+
+        Servo20.write(0);  // Move the servo back to 0 degrees
+        for (int i = 0; i < 10; i++) {
+          delay(50);  // Adjust this delay as necessary
+          if (digitalRead(IRSensorPin) == LOW) {
+            dispensed = true;
+          }
+        }
+        Servo20.write(180);
+      } else{
+
+
+        Servo20.write(0);  // Move the servo back to 0 degrees
+        dispensed = true;
+      }
+
+      // Add a delay between dispensing each note, adjust as necessary
+      for (int i = 0; i < 10; i++) {
+        delay(50);  // Adjust this delay as necessary
+        if (digitalRead(IRSensorPin) == LOW) {
+          dispensed = true;
+        }
+      }
+    }
+    // Turn off motor B
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, LOW);
+    delay(1000);
+  }
+  // Set the transaction as complete for €20 notes
+  transactionInProgress = false;
 }
