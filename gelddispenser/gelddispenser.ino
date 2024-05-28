@@ -23,20 +23,16 @@ int dispenser20Count = 20;
 int bankBudget = 1040;
 bool transactionInProgress = false; // Flag to indicate if a transaction is in progress
  
-// Variables to track the last transaction
-String lastDenomination = "";
-int lastCount = 0;
- 
 Servo Servo50;
 Servo Servo20;
  
 void setup() {
   // Initialize the servos
   Servo50.attach(servoPin50);
-  Servo50.write(0); // Move the €50 dispenser servo to the end position
+  Servo50.write(0); // Initialize the €50 dispenser servo to the start position
  
   Servo20.attach(servoPin20);
-  Servo20.write(0); // Move the €20 dispenser servo to the end position
+  Servo20.write(0); // Initialize the €20 dispenser servo to the start position
  
   // Initialization code for the motor drivers
   pinMode(enA, OUTPUT);
@@ -52,8 +48,8 @@ void setup() {
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW);
  
-  analogWrite(enA, 0); // Ensure motor A is initially off
-  analogWrite(enB, 0); // Ensure motor B is initially off
+  analogWrite(enA, 255); // Ensure motor A is initially off
+  analogWrite(enB, 255); // Ensure motor B is initially off
  
   // Initialize the IR sensor
   pinMode(IRSensorPin, INPUT);
@@ -70,13 +66,6 @@ void loop() {
     command.trim(); // Remove leading and trailing whitespace, including the newline character
     Serial.println("Received command: " + command); // Debug message
     executeCommand(command); // Process the command
-  }
- 
-  // If a transaction is in progress and no cash is detected by the IR sensor, retry the transaction
-  if (transactionInProgress && digitalRead(IRSensorPin) == HIGH) { // HIGH means no cash
-    Serial.println("No cash detected, retrying...");
-    delay(2000); // Delay to avoid rapid retries
-    retryTransaction();
   }
 }
  
@@ -104,12 +93,8 @@ void executeCommand(String command) {
     }
     int count = countString.toInt();
     if (denomination == "50") {
-      lastDenomination = "50";
-      lastCount = count;
       withdraw50(count); // Withdraw €50 notes
     } else if (denomination == "20") {
-      lastDenomination = "20";
-      lastCount = count;
       withdraw20(count); // Withdraw €20 notes
     } else {
       Serial.println("Invalid denomination.");
@@ -124,10 +109,12 @@ void withdraw50(int count) {
   for (int i = 0; i < count; i++) {
     bool dispensed = false;
     while (!dispensed) {
+      // Move the servo to 180 degrees to dispense the note
+      Servo50.write(180);
+ 
       // Turn on motor A
       digitalWrite(in1, LOW);
       digitalWrite(in2, HIGH);
-      analogWrite(enA, 255); // Set motor A to maximum speed
  
       // Set the transaction in progress
       transactionInProgress = true;
@@ -138,26 +125,27 @@ void withdraw50(int count) {
       // Check if cash is dispensed
       if (digitalRead(IRSensorPin) == HIGH) { // HIGH means no cash
         Serial.println("Cash not detected, retrying...");
-        // Turn off motor A
-        digitalWrite(in1, LOW);
-        digitalWrite(in2, LOW);
-        analogWrite(enA, 0); // Turn off motor A
+ 
+ 
+        Servo50.write(0); // Move the servo back to 0 degrees
         delay(500); // Delay before retrying
+        Servo50.write(180);
       } else {
-        dispensed = true;
         // Turn off motor A
         digitalWrite(in1, LOW);
         digitalWrite(in2, LOW);
-        analogWrite(enA, 0); // Turn off motor A
+ 
+        Servo50.write(0); // Move the servo back to 0 degrees
+        dispensed = true;
       }
  
       // Add a delay between dispensing each note, adjust as necessary
       delay(500); // 0.5 second delay between dispensing each note
     }
- 
-    // Set the transaction as complete for €50 notes
-    transactionInProgress = false;
   }
+ 
+  // Set the transaction as complete for €50 notes
+  transactionInProgress = false;
 }
  
 // Function to withdraw €20 notes
@@ -166,10 +154,12 @@ void withdraw20(int count) {
   for (int i = 0; i < count; i++) {
     bool dispensed = false;
     while (!dispensed) {
+      // Move the servo to 180 degrees to dispense the note
+      Servo20.write(180);
+ 
       // Turn on motor B
       digitalWrite(in3, HIGH);
       digitalWrite(in4, LOW);
-      analogWrite(enB, 255); // Set motor B to maximum speed
  
       // Set the transaction in progress
       transactionInProgress = true;
@@ -183,30 +173,24 @@ void withdraw20(int count) {
         // Turn off motor B
         digitalWrite(in3, LOW);
         digitalWrite(in4, LOW);
-        analogWrite(enB, 0); // Turn off motor B
+ 
+        Servo20.write(0); // Move the servo back to 0 degrees
         delay(500); // Delay before retrying
+        Servo20.write(180);
       } else {
-        dispensed = true;
         // Turn off motor B
         digitalWrite(in3, LOW);
         digitalWrite(in4, LOW);
-        analogWrite(enB, 0); // Turn off motor B
+ 
+        Servo20.write(0); // Move the servo back to 0 degrees
+        dispensed = true;
       }
  
       // Add a delay between dispensing each note, adjust as necessary
       delay(500); // 0.5 second delay between dispensing each note
     }
- 
-    // Set the transaction as complete for €20 notes
-    transactionInProgress = false;
   }
-}
  
-// Function to retry the transaction
-void retryTransaction() {
-  if (lastDenomination == "50") {
-    withdraw50(lastCount); // Retry dispensing €50 notes
-  } else if (lastDenomination == "20") {
-    withdraw20(lastCount); // Retry dispensing €20 notes
-  }
+  // Set the transaction as complete for €20 notes
+  transactionInProgress = false;
 }
