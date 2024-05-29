@@ -50,8 +50,8 @@ char uid[12];
 String bon;
 
 //bon printer
-#define TX_PIN 6
-#define RX_PIN 7
+#define TX_PIN 18
+#define RX_PIN 19
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
 Adafruit_Thermal printer(&mySerial);
@@ -117,10 +117,10 @@ void loop() {
   cardscan();
 
 
-  byte KState = KP2.Key_State();
-  if (KState == PRESSED) {
-    keypadpress();
-  }
+  // byte KState = KP2.Key_State();
+  // if (KState == PRESSED) {
+  //   keypadpress();
+  // }
 
   int value_key = analogRead(A2);
 
@@ -254,8 +254,47 @@ void printHex(byte *buffer, byte bufferSize) {
     Serial.print(buffer[i], HEX);
   }
 }
-
+void executeCommand(String command) {
+  // Split the command into tokens based on space
+  while (command.length() > 0) {
+    int spaceIndex = command.indexOf(' ');
+    String denomination;
+    if (spaceIndex != -1) {
+      denomination = command.substring(0, spaceIndex);
+      command = command.substring(spaceIndex + 1);
+    } else {
+      denomination = command;
+      command = "";
+    }
+    int countIndex = command.indexOf(' ');
+    String countString;
+    if (countIndex != -1) {
+      countString = command.substring(0, countIndex);
+      command = command.substring(countIndex + 1);
+    } else {
+      countString = command;
+      command = "";
+    }
+    int count = countString.toInt();
+    if (denomination == "50") {
+      withdraw50(count);  // Withdraw €50 notes
+    } else if (denomination == "20") {
+      withdraw20(count);  // Withdraw €20 notes
+    } else if (denomination == "30") {
+      printbon();
+      return;
+    } else {
+      Serial.println("Invalid denomination.");
+      return;
+    }
+    Deur.write(180);
+    Serial.println("geld uitgegeven");
+    delay(5000);
+    Deur.write(0);
+  }
+}
 void printbon() {
+  Serial.println("bon printen");
   printer.wake();
 
   delay(1000);  // Give the printer some time to initialize
@@ -319,42 +358,6 @@ void printbon() {
   printer.println("\n");
   printer.sleep();
 }
-void executeCommand(String command) {
-  // Split the command into tokens based on space
-  while (command.length() > 0) {
-    int spaceIndex = command.indexOf(' ');
-    String denomination;
-    if (spaceIndex != -1) {
-      denomination = command.substring(0, spaceIndex);
-      command = command.substring(spaceIndex + 1);
-    } else {
-      denomination = command;
-      command = "";
-    }
-    int countIndex = command.indexOf(' ');
-    String countString;
-    if (countIndex != -1) {
-      countString = command.substring(0, countIndex);
-      command = command.substring(countIndex + 1);
-    } else {
-      countString = command;
-      command = "";
-    }
-    int count = countString.toInt();
-    if (denomination == "50") {
-      withdraw50(count);  // Withdraw €50 notes
-    } else if (denomination == "20") {
-      withdraw20(count);  // Withdraw €20 notes
-    } else {
-      Serial.println("Invalid denomination.");
-      return;
-    }
-    Deur.write(90);
-    Serial.println("geld uitgegeven");
-    delay(5000);
-    Deur.write(0);
-  }
-}
 // Function to withdraw €50 notes
 void withdraw50(int count) {
   Serial.println("Withdraw €50 notes: " + String(count));
@@ -409,6 +412,7 @@ void withdraw50(int count) {
     // turn off motor A
     digitalWrite(in1, LOW);
     digitalWrite(in2, LOW);
+    Serial.println("briefje van 50");
     delay(1000);
   }
 
@@ -471,6 +475,7 @@ void withdraw20(int count) {
     // Turn off motor B
     digitalWrite(in3, LOW);
     digitalWrite(in4, LOW);
+    Serial.println("briefje van 20");
     delay(1000);
   }
   // Set the transaction as complete for €20 notes

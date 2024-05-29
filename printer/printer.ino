@@ -3,8 +3,8 @@
 //#include <AltSoftSerial.h>
 #include <DS3231.h>
  
-#define TX_PIN 6
-#define RX_PIN 5
+#define TX_PIN 18
+#define RX_PIN 19
 
 //AltSoftSerial mySerial(RX_PIN, TX_PIN);
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
@@ -19,11 +19,12 @@ void setup() {
   printer.begin();
   printer.setHeatConfig(11, 200, 90);
  printer.sleep();
+   printbon();
+  delay(1000);
 }
  
 void loop() {
-  printbon();
-  delay(1000);
+
 }
 void printbon(){
   printer.wake();

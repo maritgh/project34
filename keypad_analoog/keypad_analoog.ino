@@ -21,7 +21,7 @@ char KEYS[] = {
   'x', 'X', '0', 'x'
 };
  
-OnewireKeypad <Print, 16> KP2(Serial, KEYS, 4, 4, A0, 4700, 1000);
+OnewireKeypad <Print, 16> KP2(Serial, KEYS, 4, 4, A1, 4700, 1000);
  
 void setup() {
   lcd.begin(16, 2);
