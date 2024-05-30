@@ -14,11 +14,11 @@ void loop() {
   // Adjust these ranges based on your observations
   if (value == 1023) {
     Serial.println("No button pressed");
-  } else if (value > 850) {
+  } else if (value > 900) {
     Serial.println("Button6");
-  } else if (value > 800) {
+  } else if (value > 850) {
     Serial.println("Button5");
-  } else if (value > 700) {
+  } else if (value > 800) {
     Serial.println("Button4");
   } else if (value > 600) {
     Serial.println("Button3");

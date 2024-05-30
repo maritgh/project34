@@ -34,6 +34,7 @@ void loop() {
   byte KState = KP2.Key_State();
   if (KState == PRESSED) {
     if (Key = KP2.Getkey()) {
+      
       Serial << "Key: " << Key << "\n";
       lcd.setCursor(0, 0);
       lcd.clear();

@@ -20,7 +20,7 @@ int in4 = 25;  // Control pin 2 for motor B
 
 // Servo connections
 int servoPin50 = 10;  // Servo pin for the €50 dispenser
-int servoPin20 = 9;  // Servo pin for the €20 dispenser
+int servoPin20 = 9;   // Servo pin for the €20 dispenser
 int servoPinDeur = 8;
 
 const int IRSensorPin = 3;  // IR sensor pin to check if cash is dispensed
@@ -50,8 +50,8 @@ char uid[12];
 String bon;
 
 //bon printer
-#define TX_PIN 18
-#define RX_PIN 19
+#define TX_PIN 19
+#define RX_PIN 18
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
 Adafruit_Thermal printer(&mySerial);
@@ -64,7 +64,7 @@ char KEYS[] = {
   'D', '3', '2', '1',
   'C', '6', '5', '4',
   'E', '9', '8', '7',
-  'x', 'X', '0', 'x'
+  '0', '0', '0', '0'
 };
 
 OnewireKeypad<Print, 16> KP2(Serial, KEYS, 4, 4, A1, 4700, 1000);
@@ -80,6 +80,7 @@ void setup() {
   for (byte i = 0; i < 6; i++) {
     key.keyByte[i] = 0xFF;
   }
+  mySerial.begin(9600);
   printer.begin();
   printer.setHeatConfig(11, 200, 90);
   printer.sleep();
@@ -106,7 +107,7 @@ void setup() {
   digitalWrite(in4, LOW);
 
   analogWrite(enA, 255);
-  analogWrite(enB, 255); 
+  analogWrite(enB, 255);
 
   // Initialize the IR sensor
   pinMode(IRSensorPin, INPUT);
@@ -117,10 +118,10 @@ void loop() {
   cardscan();
 
 
-  // byte KState = KP2.Key_State();
-  // if (KState == PRESSED) {
-  //   keypadpress();
-  // }
+  byte KState = KP2.Key_State();
+  if (KState == PRESSED) {
+    keypadpress();
+  }
 
   int value_key = analogRead(A2);
 
@@ -133,7 +134,7 @@ void loop() {
     bon = Serial.readStringUntil('q');
     Serial.println(bon);
   }
-    if (!transactionInProgress && Serial.available() > 0) {
+  if (!transactionInProgress && Serial.available() > 0) {
     String command = Serial.readStringUntil('\n');
     command.trim();                                  // Remove leading and trailing whitespace, including the newline character
     Serial.println("Received command: " + command);  // Debug message
@@ -287,14 +288,13 @@ void executeCommand(String command) {
       Serial.println("Invalid denomination.");
       return;
     }
-    Deur.write(180);
-    Serial.println("geld uitgegeven");
-    delay(5000);
-    Deur.write(0);
   }
+  Deur.write(180);
+  Serial.println("geld uitgegeven");
+  delay(10000);
+  Deur.write(0);
 }
 void printbon() {
-  Serial.println("bon printen");
   printer.wake();
 
   delay(1000);  // Give the printer some time to initialize
@@ -396,7 +396,7 @@ void withdraw50(int count) {
           }
         }
         Servo50.write(180);
-      } else{
+      } else {
         Servo50.write(0);  // Move the servo back to 0 degrees
         dispensed = true;
       }
@@ -457,7 +457,7 @@ void withdraw20(int count) {
           }
         }
         Servo20.write(180);
-      } else{
+      } else {
 
 
         Servo20.write(0);  // Move the servo back to 0 degrees

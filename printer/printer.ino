@@ -3,8 +3,8 @@
 //#include <AltSoftSerial.h>
 #include <DS3231.h>
  
-#define TX_PIN 18
-#define RX_PIN 19
+#define TX_PIN 19
+#define RX_PIN 18
 
 //AltSoftSerial mySerial(RX_PIN, TX_PIN);
 SoftwareSerial mySerial(RX_PIN, TX_PIN);
