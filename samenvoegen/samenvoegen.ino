@@ -294,6 +294,7 @@ void executeCommand(String command) {
   delay(10000);
   Deur.write(0);
 }
+
 void printbon() {
   printer.wake();
 
